@@ -2,6 +2,7 @@ const { Router } = require('express');
 const {
   getEmployees,
   getEmployeeById,
+  getEmployeeByAuthId,
   createEmployee,
   updateEmployee,
   deleteEmployee,
@@ -29,7 +30,8 @@ const router = Router();
 
 // ── Employees ────────────────────────────────────────────────────────────────
 router.get('/employees', getEmployees);
-router.get('/employees/:id', getEmployeeById);
+router.get('/employees/me', getEmployeeByAuthId);        // debe ir ANTES de /:id
+router.get('/employees/:id', getEmployeeById);           // INT o UUID
 router.post('/employees', createEmployee);
 router.put('/employees/:id', updateEmployee);
 router.delete('/employees/:id', deleteEmployee);

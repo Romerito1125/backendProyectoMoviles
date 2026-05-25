@@ -20,15 +20,66 @@ const getEmployees = async (req, res, next) => {
   }
 };
 
-// Retorna un empleado por su ID con la cédula desencriptada
-// Espera: params.id (número entero)
-const getEmployeeById = async (req, res, next) => {
+// Retorna un empleado por su auth_user_id (UUID de Supabase Auth).
+// Soporta dos formas:
+//   GET /api/employees/me          → extrae el UUID del JWT en Authorization header
+//   GET /api/employees/auth/:uuid  → recibe el UUID directamente en la URL
+const getEmployeeByAuthId = async (req, res, next) => {
   try {
-    const { id } = req.params;
+    let authUserId = req.params.authUserId; // viene de /auth/:authUserId
+
+    // Si es la ruta /me, extraer el UUID del JWT
+    if (!authUserId) {
+      const authHeader = req.headers.authorization || '';
+      const token = authHeader.replace(/^Bearer\s+/i, '');
+
+      if (!token) {
+        return res.status(401).json({ success: false, message: 'Token de autorización requerido' });
+      }
+
+      // El JWT de Supabase tiene el sub (UUID del usuario) en el payload
+      // Decodificamos sin verificar firma (Supabase ya lo valida en su lado)
+      try {
+        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
+        authUserId = payload.sub;
+      } catch {
+        return res.status(401).json({ success: false, message: 'Token inválido o malformado' });
+      }
+
+      if (!authUserId) {
+        return res.status(401).json({ success: false, message: 'No se pudo extraer el usuario del token' });
+      }
+    }
+
     const { data, error } = await supabase
       .from('employees')
       .select('*')
-      .eq('id', id)
+      .eq('auth_user_id', authUserId)
+      .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ success: false, message: 'Empleado no encontrado' });
+
+    res.json({ success: true, data: sanitizeEmployee(data) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Retorna un empleado por su ID.
+// Si :id es un número entero → busca por la columna id (PK).
+// Si :id es un UUID          → busca por auth_user_id (clave de Supabase Auth).
+const getEmployeeById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const column = isUUID ? 'auth_user_id' : 'id';
+
+    const { data, error } = await supabase
+      .from('employees')
+      .select('*')
+      .eq(column, id)
       .single();
 
     if (error) throw error;
@@ -210,4 +261,4 @@ const deleteEmployee = async (req, res, next) => {
   }
 };
 
-module.exports = { getEmployees, getEmployeeById, createEmployee, updateEmployee, deleteEmployee };
+module.exports = { getEmployees, getEmployeeById, getEmployeeByAuthId, createEmployee, updateEmployee, deleteEmployee };

@@ -4,10 +4,7 @@ const ALGORITHM = 'aes-256-cbc';
 const KEY_LENGTH = 32; // bytes
 const IV_LENGTH = 16;  // bytes para AES CBC
 
-/**
- * Deriva una clave de exactamente 32 bytes a partir de la variable de entorno.
- * Así no importa si la clave del .env tiene más o menos caracteres.
- */
+
 const getKey = () => {
   const secret = process.env.ENCRYPTION_KEY;
   if (!secret) throw new Error('Falta la variable de entorno ENCRYPTION_KEY');
