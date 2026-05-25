@@ -20,45 +20,27 @@ const getEmployees = async (req, res, next) => {
   }
 };
 
-// Retorna un empleado por su auth_user_id (UUID de Supabase Auth).
-// Soporta dos formas:
-//   GET /api/employees/me          → extrae el UUID del JWT en Authorization header
-//   GET /api/employees/auth/:uuid  → recibe el UUID directamente en la URL
+// Retorna el empleado del usuario autenticado.
+// GET /api/employees/me
+// Requiere authMiddleware antes: usa req.user.id (UUID verificado por Supabase).
 const getEmployeeByAuthId = async (req, res, next) => {
   try {
-    let authUserId = req.params.authUserId; // viene de /auth/:authUserId
-
-    // Si es la ruta /me, extraer el UUID del JWT
-    if (!authUserId) {
-      const authHeader = req.headers.authorization || '';
-      const token = authHeader.replace(/^Bearer\s+/i, '');
-
-      if (!token) {
-        return res.status(401).json({ success: false, message: 'Token de autorización requerido' });
-      }
-
-      // El JWT de Supabase tiene el sub (UUID del usuario) en el payload
-      // Decodificamos sin verificar firma (Supabase ya lo valida en su lado)
-      try {
-        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
-        authUserId = payload.sub;
-      } catch {
-        return res.status(401).json({ success: false, message: 'Token inválido o malformado' });
-      }
-
-      if (!authUserId) {
-        return res.status(401).json({ success: false, message: 'No se pudo extraer el usuario del token' });
-      }
-    }
+    const authUserId = req.user.id;
 
     const { data, error } = await supabase
       .from('employees')
       .select('*')
       .eq('auth_user_id', authUserId)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
-    if (!data) return res.status(404).json({ success: false, message: 'Empleado no encontrado' });
+
+    if (!data) {
+      return res.status(404).json({
+        success: false,
+        message: 'Empleado no vinculado a una cuenta. Contacta al administrador.',
+      });
+    }
 
     res.json({ success: true, data: sanitizeEmployee(data) });
   } catch (error) {

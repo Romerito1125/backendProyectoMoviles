@@ -1,4 +1,5 @@
 const { Router } = require('express');
+const authMiddleware = require('../middlewares/auth');
 const {
   getEmployees,
   getEmployeeById,
@@ -30,8 +31,8 @@ const router = Router();
 
 // ── Employees ────────────────────────────────────────────────────────────────
 router.get('/employees', getEmployees);
-router.get('/employees/me', getEmployeeByAuthId);        // debe ir ANTES de /:id
-router.get('/employees/:id', getEmployeeById);           // INT o UUID
+router.get('/employees/me', authMiddleware, getEmployeeByAuthId); // JWT verificado → antes de /:id
+router.get('/employees/:id', getEmployeeById);                    // INT o UUID
 router.post('/employees', createEmployee);
 router.put('/employees/:id', updateEmployee);
 router.delete('/employees/:id', deleteEmployee);
@@ -45,20 +46,15 @@ router.put('/pagos/:id', updatePago);
 router.delete('/pagos/:id', deletePago);
 
 // ── Jornadas ──────────────────────────────────────────────────────────────────
-// Rutas estáticas primero (antes de las que tienen :id)
 router.get('/jornadas', getJornadas);
 router.get('/jornadas/empleado/:idEmpleado', getJornadasByEmpleado);
 router.get('/jornadas/empleado/:idEmpleado/resumen-extras', getResumenExtrasEmpleado);
 
-// POST  → marcar entrada (crea el registro, hora_salida queda NULL)
-router.post('/jornadas', marcarEntrada);
+router.post('/jornadas', authMiddleware, marcarEntrada);          // JWT verificado
+router.patch('/jornadas/:id/salida', authMiddleware, marcarSalida); // JWT verificado
 
-// PATCH → marcar salida (actualiza el registro existente con hora_salida y recalcula horas)
-router.patch('/jornadas/:id/salida', marcarSalida);
-
-// Rutas con :id
 router.get('/jornadas/:id', getJornadaById);
-router.put('/jornadas/:id', updateJornada);       // edición completa (admin)
-router.delete('/jornadas/:id', deleteJornada);    // eliminar (admin)
+router.put('/jornadas/:id', updateJornada);
+router.delete('/jornadas/:id', deleteJornada);
 
 module.exports = router;
